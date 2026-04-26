@@ -29,7 +29,7 @@ cocos store：https://store.cocos.com/app/detail/7941
 - **事件绑定与老功能补全**：补充并实现了事件绑定、节点/组件/资源等老功能，所有方法与官方实现完全对齐。
 - **接口优化**：所有接口参数更清晰，文档更完善，AI更容易理解和调用。
 - **插件面板优化**：面板UI更简洁，操作更直观。
-- **性能与兼容性提升**：整体架构更高效，兼容Cocos Creator 3.8.6及以上所有版本。
+- **性能与兼容性提升**：整体架构更高效，兼容Cocos Creator 3.8.3及以上所有版本。
 
 
 ## 工具体系与操作码
@@ -413,7 +413,7 @@ npm run build
 
 ## 系统要求
 
-- Cocos Creator 3.8.6 或更高版本
+- Cocos Creator 3.8.3 或更高版本
 - Node.js（Cocos Creator 自带）
 - TypeScript（作为开发依赖安装）
 

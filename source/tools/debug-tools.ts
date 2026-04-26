@@ -29,6 +29,18 @@ export class DebugTools implements ToolExecutor {
         }
     }
 
+    private async requestSceneWithFallback(methods: string[], ...args: any[]): Promise<any> {
+        let lastError: any = null;
+        for (const method of methods) {
+            try {
+                return await (Editor.Message.request as any)('scene', method, ...args);
+            } catch (err) {
+                lastError = err;
+            }
+        }
+        throw lastError || new Error(`Scene API request failed for methods: ${methods.join(', ')}`);
+    }
+
     getTools(): ToolDefinition[] {
         return [
             {
@@ -309,9 +321,10 @@ export class DebugTools implements ToolExecutor {
                     resolve({ success: true, data: tree });
                 });
             } else {
-                Editor.Message.request('scene', 'query-hierarchy').then(async (hierarchy: any) => {
+                this.requestSceneWithFallback(['query-hierarchy', 'query-node-tree']).then(async (hierarchy: any) => {
+                    const rootNodes = Array.isArray(hierarchy?.children) ? hierarchy.children : [];
                     const trees = [];
-                    for (const rootNode of hierarchy.children) {
+                    for (const rootNode of rootNodes) {
                         const tree = await buildTree(rootNode.uuid);
                         trees.push(tree);
                     }
@@ -352,28 +365,47 @@ export class DebugTools implements ToolExecutor {
         try {
             // Check for missing assets
             if (options.checkMissingAssets) {
-                const assetCheck = await Editor.Message.request('scene', 'check-missing-assets');
-                if (assetCheck && assetCheck.missing) {
+                try {
+                    const assetCheck = await this.requestSceneWithFallback(['check-missing-assets', 'query-missing-assets']);
+                    if (assetCheck && assetCheck.missing) {
+                        issues.push({
+                            type: 'error',
+                            category: 'assets',
+                            message: `Found ${assetCheck.missing.length} missing asset references`,
+                            details: assetCheck.missing
+                        });
+                    }
+                } catch {
                     issues.push({
-                        type: 'error',
+                        type: 'warning',
                         category: 'assets',
-                        message: `Found ${assetCheck.missing.length} missing asset references`,
-                        details: assetCheck.missing
+                        message: 'Missing-asset validation API is not available in this editor version',
+                        suggestion: 'Use editor diagnostics or manual asset check in Assets panel'
                     });
                 }
             }
 
             // Check for performance issues
             if (options.checkPerformance) {
-                const hierarchy = await Editor.Message.request('scene', 'query-hierarchy');
-                const nodeCount = this.countNodes(hierarchy.children);
-                
-                if (nodeCount > 1000) {
+                try {
+                    const hierarchy = await this.requestSceneWithFallback(['query-hierarchy', 'query-node-tree']);
+                    const children = Array.isArray(hierarchy?.children) ? hierarchy.children : [];
+                    const nodeCount = this.countNodes(children);
+                    
+                    if (nodeCount > 1000) {
+                        issues.push({
+                            type: 'warning',
+                            category: 'performance',
+                            message: `High node count: ${nodeCount} nodes (recommended < 1000)`,
+                            suggestion: 'Consider using object pooling or scene optimization'
+                        });
+                    }
+                } catch {
                     issues.push({
                         type: 'warning',
                         category: 'performance',
-                        message: `High node count: ${nodeCount} nodes (recommended < 1000)`,
-                        suggestion: 'Consider using object pooling or scene optimization'
+                        message: 'Scene hierarchy API is not available in this editor version',
+                        suggestion: 'Skip node-count based performance checks on this version'
                     });
                 }
             }
